@@ -71,9 +71,11 @@ cargo build --release
 
 Your binary is at `target/release/fuckyoumcp.exe` (4.3MB, stripped, LTO'd).
 
-### Add to Claude Code
+### Add to your MCP client
 
-Add to your `~/.claude/settings.json`:
+Most MCP clients use a JSON config file. Add fuckyoumcp as a server:
+
+**Settings file** (e.g. `settings.json`, `mcp_config.json`, etc.):
 
 ```json
 {
@@ -85,9 +87,9 @@ Add to your `~/.claude/settings.json`:
 }
 ```
 
-### Add to Claude Desktop
+### Desktop app config
 
-Add to `%APPDATA%\Claude\claude_desktop_config.json`:
+For desktop MCP apps, the config is usually at `%APPDATA%\<app>\config.json`:
 
 ```json
 {
