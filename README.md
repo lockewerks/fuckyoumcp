@@ -64,7 +64,7 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 ### Build from source
 
 ```bash
-git clone https://github.com/jhancuff/fuckyoumcp.git
+git clone https://github.com/lockewerks/fuckyoumcp.git
 cd fuckyoumcp
 cargo build --release
 ```
