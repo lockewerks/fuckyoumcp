@@ -69,12 +69,14 @@ The computer use tools let an AI assistant **see and interact with your desktop*
 
 - **`screen_capture`** — Screenshot the full screen or a specific region. Returns PNG image via MCP image content. Uses GDI BitBlt for capture, PNG encoding for transport.
 - **`cursor_position`** — Get the current mouse cursor X,Y coordinates.
-- **`mouse_move`** — Move the cursor to any screen coordinate.
-- **`mouse_click`** — Left/right/middle click, single/double/triple, at any position. Uses SendInput for reliable injection.
-- **`mouse_scroll`** — Scroll wheel up or down at the current or specified position.
-- **`mouse_drag`** — Click-and-drag between two points with smooth multi-step movement.
+- **`mouse_move`** — Glide the cursor to any screen coordinate with smooth eased movement.
+- **`mouse_click`** — Glide to position, then left/right/middle click, single/double/triple. Uses SendInput for reliable injection.
+- **`mouse_scroll`** — Glide to position, then scroll wheel up or down.
+- **`mouse_drag`** — Glide to start point, hold button, glide to end point, release. Smooth eased interpolation throughout.
 - **`keyboard_type`** — Type arbitrary Unicode text (emoji, CJK, accented chars, anything) via KEYEVENTF_UNICODE. Works regardless of keyboard layout.
 - **`keyboard_key`** — Press key combos: `ctrl+c`, `alt+tab`, `win+d`, `shift+f5`, `enter`, etc. Handles modifier hold/release sequences automatically.
+
+All mouse movements use **ease-in-out cubic interpolation** — the cursor accelerates from rest, cruises, then decelerates to a stop. Duration scales with distance (60ms for short hops, up to 600ms for cross-screen sweeps). No teleporting. Watching the cursor glide on its own is either mesmerizing or deeply unsettling depending on your relationship with the machine.
 
 ## Installation
 
