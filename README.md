@@ -4,6 +4,14 @@ The Windows 11 system MCP server that every other MCP server wishes it was.
 
 **98 tools. 19 categories. 41 direct Win32 syscalls. Sub-millisecond response times. Full autonomous computer use.** Built in Rust because we're not here to fuck around with Node.js startup times and PowerShell's "please wait while I load the entire .NET runtime to tell you what your CPU is called."
 
+## Fair Warning
+
+> **This tool gives an AI full, unrestricted, root-level access to your Windows machine.** It can kill processes, rewrite your registry, delete files, create users, modify firewall rules, disable services, and now — see your screen, move your mouse, and type on your keyboard. It will do exactly what you tell it to, and if what you tell it is stupid, it will do that too. Enthusiastically.
+>
+> This is not a toy. This is not a sandbox. There is no safety net, no "are you sure?" prompt, no undo button. If you don't understand what `RegDeleteKeyW` does, or why giving an AI `SendInput` access is a spectacularly bad idea in the wrong hands — **this is not for you.** Go install something with guardrails and a friendly UI. We hear VS Code has a nice plugin marketplace.
+>
+> If you *do* understand the risks and you're here anyway: welcome. You're our kind of unhinged.
+
 ## What the hell is this?
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that gives AI assistants **full system control** over Windows 11. Not just system management — **full autonomous computer use**. Screen capture, mouse control, keyboard input, plus processes, services, registry, firewall, network, the whole goddamn operating system.
