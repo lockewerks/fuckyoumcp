@@ -1,9 +1,9 @@
-//! # The Server — 90 Tools of Pure Windows Domination
+//! # The Server — 98 Tools of Pure Windows Domination
 //!
-//! This is the big one. 90 MCP tools across 18 categories, crammed into one
+//! This is the big one. 98 MCP tools across 19 categories, crammed into one
 //! glorious `#[tool_router]` impl block because the rmcp macro demands it.
 //!
-//! 33 tools bypass PowerShell entirely and go straight to Win32 syscalls.
+//! 41 tools bypass PowerShell entirely and go straight to Win32 syscalls.
 //! The other 57 tools use the persistent PowerShell pool because Microsoft
 //! decided that firewalls, scheduled tasks, and user management should only
 //! be accessible through COM objects invented during the Clinton administration.
@@ -369,6 +369,77 @@ pub struct ClipboardSetInput {
     pub text: String,
 }
 
+// Computer Use — Screen
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScreenCaptureInput {
+    #[schemars(description = "X coordinate of capture region top-left (default: 0)")]
+    pub x: Option<i32>,
+    #[schemars(description = "Y coordinate of capture region top-left (default: 0)")]
+    pub y: Option<i32>,
+    #[schemars(description = "Width of capture region in pixels (default: primary monitor width)")]
+    pub width: Option<u32>,
+    #[schemars(description = "Height of capture region in pixels (default: primary monitor height)")]
+    pub height: Option<u32>,
+}
+
+// Computer Use — Mouse
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MouseMoveInput {
+    #[schemars(description = "Target X coordinate (screen pixels)")]
+    pub x: i32,
+    #[schemars(description = "Target Y coordinate (screen pixels)")]
+    pub y: i32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MouseClickInput {
+    #[schemars(description = "X coordinate to click at (default: current position)")]
+    pub x: Option<i32>,
+    #[schemars(description = "Y coordinate to click at (default: current position)")]
+    pub y: Option<i32>,
+    #[schemars(description = "Button: left, right, or middle (default: left)")]
+    pub button: Option<String>,
+    #[schemars(description = "Click count: 1=single, 2=double, 3=triple (default: 1)")]
+    pub count: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MouseScrollInput {
+    #[schemars(description = "X coordinate to scroll at (default: current position)")]
+    pub x: Option<i32>,
+    #[schemars(description = "Y coordinate to scroll at (default: current position)")]
+    pub y: Option<i32>,
+    #[schemars(description = "Scroll clicks: positive=up, negative=down")]
+    pub clicks: i32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MouseDragInput {
+    #[schemars(description = "Start X coordinate")]
+    pub start_x: i32,
+    #[schemars(description = "Start Y coordinate")]
+    pub start_y: i32,
+    #[schemars(description = "End X coordinate")]
+    pub end_x: i32,
+    #[schemars(description = "End Y coordinate")]
+    pub end_y: i32,
+    #[schemars(description = "Button: left, right, or middle (default: left)")]
+    pub button: Option<String>,
+}
+
+// Computer Use — Keyboard
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct KeyboardTypeInput {
+    #[schemars(description = "Text to type (supports full Unicode including emoji)")]
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct KeyboardKeyInput {
+    #[schemars(description = "Key combo to press, e.g. 'ctrl+c', 'alt+tab', 'enter', 'shift+f5'. Supported: ctrl, shift, alt, win, a-z, 0-9, f1-f24, enter, tab, escape, backspace, delete, space, up/down/left/right, home, end, pageup, pagedown, insert, printscreen")]
+    pub keys: String,
+}
+
 // Performance
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct PerfTopInput {
@@ -470,13 +541,13 @@ macro_rules! native {
     }};
 }
 
-// ─── 90 Tools ─────────────────────────────────────────────────────────────────
-// Buckle up. This is 90 MCP tool definitions in one impl block.
+// ─── 98 Tools ─────────────────────────────────────────────────────────────────
+// Buckle up. This is 98 MCP tool definitions in one impl block.
 // The #[tool_router] macro scans this entire block and generates a
 // dispatcher that maps tool names to handler methods. Every #[tool]
 // attribute becomes a callable MCP tool with auto-generated JSON Schema.
 //
-// native!() = direct Win32 syscall, <1ms    (33 tools — the fast ones)
+// native!() = direct Win32 syscall, <1ms    (41 tools — the fast ones)
 // ps!()     = PowerShell pool, 200-1500ms   (57 tools — the slow but necessary ones)
 
 #[tool_router]
@@ -1394,6 +1465,91 @@ impl FuckYouMcp {
         )
     }
 
+    // ── Computer Use (8) ──────────────────────────────────────────────
+    // The crown jewels. Full autonomous computer control: see the screen,
+    // move the mouse, click things, type text, press key combos. These are
+    // all native Win32 via SendInput and GDI — no PowerShell in the loop.
+
+    #[tool(description = "Capture a screenshot of the screen or a specific region. Returns the image as PNG. Use this to see what's on screen before taking actions.")]
+    async fn screen_capture(
+        &self,
+        Parameters(input): Parameters<ScreenCaptureInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let start = std::time::Instant::now();
+        tracing::info!(tool = "screen_capture", "▶ native");
+        match crate::win32::screen::capture(input.x, input.y, input.width, input.height) {
+            Ok((b64, w, h)) => {
+                let ms = start.elapsed().as_millis();
+                tracing::info!(tool = "screen_capture", ms = ms as u64, "✓ native done");
+                Ok(CallToolResult::success(vec![
+                    Content::image(b64, "image/png"),
+                    Content::text(format!("Screenshot captured: {w}x{h} pixels")),
+                ]))
+            }
+            Err(e) => {
+                let ms = start.elapsed().as_millis();
+                tracing::error!(tool = "screen_capture", ms = ms as u64, err = %e, "✗ native fail");
+                err(e)
+            }
+        }
+    }
+
+    #[tool(description = "Get the current mouse cursor position as screen coordinates (X, Y)")]
+    async fn cursor_position(&self) -> Result<CallToolResult, McpError> {
+        native!(crate::win32::input::cursor_position())
+    }
+
+    #[tool(description = "Move the mouse cursor to the specified screen coordinates")]
+    async fn mouse_move(
+        &self,
+        Parameters(input): Parameters<MouseMoveInput>,
+    ) -> Result<CallToolResult, McpError> {
+        native!(crate::win32::input::mouse_move(input.x, input.y))
+    }
+
+    #[tool(description = "Click a mouse button at the current or specified position. Supports left/right/middle click, single/double/triple click.")]
+    async fn mouse_click(
+        &self,
+        Parameters(input): Parameters<MouseClickInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let button = input.button.as_deref().unwrap_or("left");
+        let count = input.count.unwrap_or(1);
+        native!(crate::win32::input::mouse_click(input.x, input.y, button, count))
+    }
+
+    #[tool(description = "Scroll the mouse wheel at the current or specified position. Positive clicks = scroll up, negative = scroll down.")]
+    async fn mouse_scroll(
+        &self,
+        Parameters(input): Parameters<MouseScrollInput>,
+    ) -> Result<CallToolResult, McpError> {
+        native!(crate::win32::input::mouse_scroll(input.x, input.y, input.clicks))
+    }
+
+    #[tool(description = "Click and drag from one screen position to another. Useful for moving windows, selecting text, drawing, etc.")]
+    async fn mouse_drag(
+        &self,
+        Parameters(input): Parameters<MouseDragInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let button = input.button.as_deref().unwrap_or("left");
+        native!(crate::win32::input::mouse_drag(input.start_x, input.start_y, input.end_x, input.end_y, button))
+    }
+
+    #[tool(description = "Type text by injecting Unicode keyboard events. Works with any character including emoji, accented letters, CJK, etc. regardless of keyboard layout.")]
+    async fn keyboard_type(
+        &self,
+        Parameters(input): Parameters<KeyboardTypeInput>,
+    ) -> Result<CallToolResult, McpError> {
+        native!(crate::win32::input::keyboard_type(&input.text))
+    }
+
+    #[tool(description = "Press a key or key combination. Examples: 'enter', 'ctrl+c', 'alt+tab', 'ctrl+shift+s', 'win+d', 'f5'. Modifiers: ctrl, shift, alt, win. See tool schema for full key list.")]
+    async fn keyboard_key(
+        &self,
+        Parameters(input): Parameters<KeyboardKeyInput>,
+    ) -> Result<CallToolResult, McpError> {
+        native!(crate::win32::input::keyboard_key(&input.keys))
+    }
+
     // ── Windows Update (2) ───────────────────────────────────────────────
 
     #[tool(description = "List installed Windows updates (hotfixes) with KB numbers and install dates")]
@@ -1418,11 +1574,12 @@ impl ServerHandler for FuckYouMcp {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("fuckyoumcp", env!("CARGO_PKG_VERSION")))
             .with_instructions(
-                "Windows 11 System Control MCP Server. 90 tools across 18 categories: \
+                "Windows 11 System Control MCP Server. 98 tools across 19 categories: \
                  system info, processes, services, filesystem, registry, network, firewall, \
                  event logs, scheduled tasks, software, users/groups, environment variables, \
                  PowerShell/CMD/WMI execution, Windows features, clipboard, display/audio, \
-                 performance monitoring, and Windows updates."
+                 performance monitoring, Windows updates, and computer use (screen capture, \
+                 mouse control, keyboard input for full autonomous desktop interaction)."
                     .to_string(),
             )
     }

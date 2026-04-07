@@ -2,11 +2,11 @@
 
 The Windows 11 system MCP server that every other MCP server wishes it was.
 
-**90 tools. 18 categories. 33 direct Win32 syscalls. Sub-millisecond response times.** Built in Rust because we're not here to fuck around with Node.js startup times and PowerShell's "please wait while I load the entire .NET runtime to tell you what your CPU is called."
+**98 tools. 19 categories. 41 direct Win32 syscalls. Sub-millisecond response times. Full autonomous computer use.** Built in Rust because we're not here to fuck around with Node.js startup times and PowerShell's "please wait while I load the entire .NET runtime to tell you what your CPU is called."
 
 ## What the hell is this?
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that gives AI assistants **full system control** over Windows 11. Not "click this button" UI automation bullshit — actual system control. Processes, services, registry, firewall, network, the whole goddamn operating system.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that gives AI assistants **full system control** over Windows 11. Not just system management — **full autonomous computer use**. Screen capture, mouse control, keyboard input, plus processes, services, registry, firewall, network, the whole goddamn operating system.
 
 Other Windows MCP servers use PowerShell for everything and make you wait 1-2 seconds per tool call. We call Win32 APIs directly from Rust. Our `process_list` runs in **9ms**. Our `memory_info` runs in **<1ms**. Their equivalent takes **1,500ms**. Do the math.
 
@@ -14,11 +14,12 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  fuckyoumcp.exe (4.3MB Rust binary)                     │
+│  fuckyoumcp.exe (Rust binary)                           │
 │                                                         │
-│  33 tools ──→ Direct Win32 syscalls ──→ <1ms response   │
+│  41 tools ──→ Direct Win32 syscalls ──→ <1ms response   │
 │               CreateToolhelp32Snapshot, OpenSCManagerW,  │
-│               RegOpenKeyExW, GetTcpTable2, etc.          │
+│               RegOpenKeyExW, GetTcpTable2, SendInput,    │
+│               BitBlt (screen capture), etc.               │
 │                                                         │
 │  57 tools ──→ Persistent PowerShell pool ──→ 200-1500ms │
 │               3x pre-warmed pwsh.exe processes           │
@@ -26,11 +27,11 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Native Win32 tools (33):** Process management, services, registry, filesystem, network connections, system info, clipboard, disk info — all via direct syscalls. No subprocess. No serialization overhead. Just raw speed.
+**Native Win32 tools (41):** Process management, services, registry, filesystem, network connections, system info, clipboard, disk info, **screen capture, mouse control, keyboard input** — all via direct syscalls. No subprocess. No serialization overhead. Just raw speed.
 
 **PowerShell pool tools (57):** Firewall rules, scheduled tasks, event logs, user management, Windows features, audio, updates — stuck behind COM/WMI interfaces that only PowerShell can reach without losing your mind. The pool keeps 3 `pwsh.exe` processes warm so at least you're not paying startup cost.
 
-## The 90 Tools
+## The 98 Tools
 
 | Category | Count | Backend | Tools |
 |----------|-------|---------|-------|
@@ -52,6 +53,20 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 | **Display & Audio** | 3 | PS | `display_info` `audio_devices` `audio_volume` |
 | **Performance** | 3 | Native + PS | `perf_snapshot` `perf_top` `perf_counter` |
 | **Windows Update** | 2 | PS | `update_list` `update_history` |
+| **Computer Use** | 8 | Native | `screen_capture` `cursor_position` `mouse_move` `mouse_click` `mouse_scroll` `mouse_drag` `keyboard_type` `keyboard_key` |
+
+### Computer Use — Full Autonomous Desktop Control
+
+The computer use tools let an AI assistant **see and interact with your desktop** like a human would. All native Win32, no PowerShell overhead:
+
+- **`screen_capture`** — Screenshot the full screen or a specific region. Returns PNG image via MCP image content. Uses GDI BitBlt for capture, PNG encoding for transport.
+- **`cursor_position`** — Get the current mouse cursor X,Y coordinates.
+- **`mouse_move`** — Move the cursor to any screen coordinate.
+- **`mouse_click`** — Left/right/middle click, single/double/triple, at any position. Uses SendInput for reliable injection.
+- **`mouse_scroll`** — Scroll wheel up or down at the current or specified position.
+- **`mouse_drag`** — Click-and-drag between two points with smooth multi-step movement.
+- **`keyboard_type`** — Type arbitrary Unicode text (emoji, CJK, accented chars, anything) via KEYEVENTF_UNICODE. Works regardless of keyboard layout.
+- **`keyboard_key`** — Press key combos: `ctrl+c`, `alt+tab`, `win+d`, `shift+f5`, `enter`, etc. Handles modifier hold/release sequences automatically.
 
 ## Installation
 
@@ -145,17 +160,17 @@ Measured on AMD Ryzen AI 9 HX 370, Windows 11 Pro:
 | `eventlog_query` | PowerShell | ~1,250ms |
 | `firewall_rules_list` | PowerShell | ~1,500ms |
 
-Native tools are **100-1000x faster** than PowerShell-backed tools. The 33 native tools cover the most commonly used operations. The 57 PowerShell tools handle the COM/WMI-only operations that would require 10x the code to implement natively.
+Native tools are **100-1000x faster** than PowerShell-backed tools. The 41 native tools cover the most commonly used operations plus full computer use. The 57 PowerShell tools handle the COM/WMI-only operations that would require 10x the code to implement natively.
 
 ## Why "fuckyoumcp"?
 
 Because we looked at the existing Windows MCP landscape and said exactly that. Every other server was either:
 
-- **UI automation** (cool, but we want system control, not screen clicking)
+- **UI automation** (cool, but we want system control *and* screen control)
 - **PowerShell wrappers** that spawn a new `pwsh.exe` for every. single. command.
 - **TypeScript** servers adding 200ms of Node.js startup to every interaction
 
-So we wrote it in Rust with direct Win32 syscalls because we have standards and those standards include sub-millisecond response times.
+So we wrote it in Rust with direct Win32 syscalls because we have standards and those standards include sub-millisecond response times. Then we added native computer use tools because why should your AI have to choose between system control and desktop interaction?
 
 ## License
 

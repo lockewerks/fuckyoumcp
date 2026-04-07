@@ -4,7 +4,7 @@
 //! Windows kernel like adults. Sub-millisecond responses instead of waiting
 //! 1.5 seconds for PowerShell to load half of .NET just to count processes.
 //!
-//! 33 of our 90 tools run through here. The other 57 are stuck in PowerShell
+//! 41 of our 98 tools run through here. The other 57 are stuck in PowerShell
 //! purgatory because Microsoft decided that firewall rules, scheduled tasks,
 //! and user management should only be accessible through COM objects.
 //! Thanks, Microsoft. Real cool.
@@ -16,6 +16,8 @@ pub mod sysinfo;
 pub mod network;
 pub mod filesystem;
 pub mod clipboard;
+pub mod screen;
+pub mod input;
 
 use windows::core::PWSTR;
 
