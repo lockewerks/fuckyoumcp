@@ -17,9 +17,77 @@ use super::pretty;
 use anyhow::Result;
 use serde_json::json;
 use std::mem::size_of;
+use std::time::Duration;
 use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
+
+// ─── Smooth Movement ─────────────────────────────────────────────────────────
+// Every mouse movement glides across the screen like an unseen hand.
+// We use ease-in-out cubic interpolation so the cursor accelerates from
+// rest, cruises, then decelerates to a stop — the way a poltergeist would
+// move your mouse if it had good taste.
+//
+// Total glide time scales with distance: short moves are quick, long moves
+// take longer, but never more than ~600ms. The step interval is ~5ms
+// (roughly 200Hz) which is smooth enough to look continuous on any monitor.
+
+/// Duration of the longest possible glide, in milliseconds.
+const GLIDE_MAX_MS: f64 = 600.0;
+/// Duration of the shortest glide (tiny movements), in milliseconds.
+const GLIDE_MIN_MS: f64 = 60.0;
+/// Approximate interval between cursor position updates.
+const GLIDE_STEP_MS: u64 = 5;
+/// Diagonal of a 1920x1080 screen, used to normalize distance.
+const SCREEN_DIAG: f64 = 2203.0;
+
+/// Ease-in-out cubic: slow start, fast middle, slow end.
+/// t in [0,1] → output in [0,1]. Makes the cursor look alive.
+fn ease_in_out(t: f64) -> f64 {
+    if t < 0.5 {
+        4.0 * t * t * t
+    } else {
+        1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+    }
+}
+
+/// Glide the cursor smoothly from its current position to (target_x, target_y).
+/// The movement uses ease-in-out interpolation and scales duration with distance.
+/// Watching this in real time is either beautiful or deeply unsettling,
+/// depending on whether you're the one who asked for it.
+fn glide_to(target_x: i32, target_y: i32) -> Result<()> {
+    unsafe {
+        let mut start = POINT::default();
+        GetCursorPos(&mut start)?;
+
+        let dx = (target_x - start.x) as f64;
+        let dy = (target_y - start.y) as f64;
+        let dist = (dx * dx + dy * dy).sqrt();
+
+        // Skip the theatrics for sub-pixel moves
+        if dist < 2.0 {
+            SetCursorPos(target_x, target_y)?;
+            return Ok(());
+        }
+
+        // Scale duration: short moves are fast, long moves slower
+        let ratio = (dist / SCREEN_DIAG).min(1.0);
+        let duration_ms = GLIDE_MIN_MS + ratio * (GLIDE_MAX_MS - GLIDE_MIN_MS);
+        let steps = (duration_ms / GLIDE_STEP_MS as f64).ceil() as u32;
+
+        for i in 1..=steps {
+            let t = ease_in_out(i as f64 / steps as f64);
+            let ix = start.x + (dx * t) as i32;
+            let iy = start.y + (dy * t) as i32;
+            SetCursorPos(ix, iy)?;
+            std::thread::sleep(Duration::from_millis(GLIDE_STEP_MS));
+        }
+
+        // Nail the landing — floating point can leave us 1px off
+        SetCursorPos(target_x, target_y)?;
+        Ok(())
+    }
+}
 
 /// Get the current cursor position as (x, y) screen coordinates.
 pub fn cursor_position() -> Result<String> {
@@ -33,16 +101,14 @@ pub fn cursor_position() -> Result<String> {
     }
 }
 
-/// Move the cursor to absolute screen coordinates.
+/// Move the cursor to absolute screen coordinates with a smooth glide.
 pub fn mouse_move(x: i32, y: i32) -> Result<String> {
-    unsafe {
-        SetCursorPos(x, y)?;
-        Ok(pretty(&json!({
-            "Status": "Moved",
-            "X": x,
-            "Y": y,
-        })))
-    }
+    glide_to(x, y)?;
+    Ok(pretty(&json!({
+        "Status": "Moved",
+        "X": x,
+        "Y": y,
+    })))
 }
 
 /// Click a mouse button at optional coordinates.
@@ -55,11 +121,10 @@ pub fn mouse_click(
     count: u32,
 ) -> Result<String> {
     unsafe {
-        // Move to position first if coordinates specified
+        // Glide to position first if coordinates specified
         if let (Some(cx), Some(cy)) = (x, y) {
-            SetCursorPos(cx, cy)?;
-            // Brief pause so target app registers the cursor position
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            glide_to(cx, cy)?;
+            std::thread::sleep(Duration::from_millis(5));
         }
 
         let (down, up) = button_flags(button);
@@ -97,8 +162,8 @@ pub fn mouse_scroll(
 ) -> Result<String> {
     unsafe {
         if let (Some(cx), Some(cy)) = (x, y) {
-            SetCursorPos(cx, cy)?;
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            glide_to(cx, cy)?;
+            std::thread::sleep(Duration::from_millis(5));
         }
 
         const WHEEL_DELTA: i32 = 120;
@@ -138,25 +203,33 @@ pub fn mouse_drag(
     unsafe {
         let (down, up) = button_flags(button);
 
-        // Move to start position
-        SetCursorPos(start_x, start_y)?;
-        std::thread::sleep(std::time::Duration::from_millis(15));
+        // Glide to start position like we mean it
+        glide_to(start_x, start_y)?;
+        std::thread::sleep(Duration::from_millis(15));
 
         // Press button down
         SendInput(&[mouse_input(down)], size_of::<INPUT>() as i32);
-        std::thread::sleep(std::time::Duration::from_millis(30));
+        std::thread::sleep(Duration::from_millis(30));
 
-        // Move to end position — use multiple intermediate steps for smooth drag
-        let steps = 10;
+        // Glide to end position — same eased interpolation as regular moves
+        // but we do it manually here because the button is held down
+        let dx = (end_x - start_x) as f64;
+        let dy = (end_y - start_y) as f64;
+        let dist = (dx * dx + dy * dy).sqrt();
+        let ratio = (dist / SCREEN_DIAG).min(1.0);
+        let duration_ms = GLIDE_MIN_MS + ratio * (GLIDE_MAX_MS - GLIDE_MIN_MS);
+        let steps = (duration_ms / GLIDE_STEP_MS as f64).ceil() as u32;
+
         for i in 1..=steps {
-            let t = i as f64 / steps as f64;
-            let ix = start_x + ((end_x - start_x) as f64 * t) as i32;
-            let iy = start_y + ((end_y - start_y) as f64 * t) as i32;
+            let t = ease_in_out(i as f64 / steps as f64);
+            let ix = start_x + (dx * t) as i32;
+            let iy = start_y + (dy * t) as i32;
             SetCursorPos(ix, iy)?;
-            std::thread::sleep(std::time::Duration::from_millis(5));
+            std::thread::sleep(Duration::from_millis(GLIDE_STEP_MS));
         }
+        SetCursorPos(end_x, end_y)?;
 
-        std::thread::sleep(std::time::Duration::from_millis(15));
+        std::thread::sleep(Duration::from_millis(15));
 
         // Release button
         SendInput(&[mouse_input(up)], size_of::<INPUT>() as i32);
