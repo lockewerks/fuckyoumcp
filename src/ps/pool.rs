@@ -105,7 +105,7 @@ impl Worker {
     /// ALL OF THIS MUST BE ON ONE LINE because PowerShell's stdin mode is
     /// dumber than a bag of rocks. See module docs for the full horror story.
     async fn execute_raw(&mut self, command: &str) -> anyhow::Result<String> {
-        let delimiter = format!("___FYMCP_{}___", uuid::Uuid::new_v4());
+        let delimiter = format!("___MCP_{}___", uuid::Uuid::new_v4());
 
         // THE LEGENDARY ONE-LINER: try/catch + if/elseif/else + JSON serialization
         // all crammed onto a single line because PowerShell said "fuck your formatting."

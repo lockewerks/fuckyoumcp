@@ -1,8 +1,12 @@
 [package]
-name = "fuckyoumcp"
+name = "master-control-program"
 version = "0.1.0"
 edition = "2021"
 description = "The fastest Windows 11 system control MCP server"
+
+[[bin]]
+name = "MasterControlProgram"
+path = "src/main.rs"
 
 [dependencies]
 rmcp = { version = "1", features = ["server", "transport-io"] }
@@ -11,7 +15,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 base64 = "0.22"
-png = "0.17"
+jpeg-encoder = "0.6"
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

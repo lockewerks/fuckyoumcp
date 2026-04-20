@@ -1,4 +1,6 @@
-# fuckyoumcp
+# MasterControlProgram
+
+> *"End of line."*
 
 The Windows 11 system MCP server that every other MCP server wishes it was.
 
@@ -22,7 +24,7 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  fuckyoumcp.exe (Rust binary)                           │
+│  MasterControlProgram.exe (Rust binary)                 │
 │                                                         │
 │  41 tools ──→ Direct Win32 syscalls ──→ <1ms response   │
 │               CreateToolhelp32Snapshot, OpenSCManagerW,  │
@@ -67,7 +69,7 @@ Other Windows MCP servers use PowerShell for everything and make you wait 1-2 se
 
 The computer use tools let an AI assistant **see and interact with your desktop** like a human would. All native Win32, no PowerShell overhead:
 
-- **`screen_capture`** — Screenshot the full screen or a specific region. Returns PNG image via MCP image content. Uses GDI BitBlt for capture, PNG encoding for transport.
+- **`screen_capture`** — Screenshot the full screen or a specific region. Returns JPEG image via MCP image content. Uses GDI BitBlt for capture, JPEG (quality 80) for transport — way smaller than PNG for the same visual fidelity.
 - **`cursor_position`** — Get the current mouse cursor X,Y coordinates.
 - **`mouse_move`** — Glide the cursor to any screen coordinate with smooth eased movement.
 - **`mouse_click`** — Glide to position, then left/right/middle click, single/double/triple. Uses SendInput for reliable injection.
@@ -89,24 +91,24 @@ All mouse movements use **ease-in-out cubic interpolation** — the cursor accel
 ### Build from source
 
 ```bash
-git clone https://github.com/lockewerks/fuckyoumcp.git
-cd fuckyoumcp
+git clone https://github.com/lockewerks/MasterControlProgram.git
+cd MasterControlProgram
 cargo build --release
 ```
 
-Your binary is at `target/release/fuckyoumcp.exe` (4.3MB, stripped, LTO'd).
+Your binary is at `target/release/MasterControlProgram.exe` (4.3MB, stripped, LTO'd).
 
 ### Add to your MCP client
 
-Most MCP clients use a JSON config file. Add fuckyoumcp as a server:
+Most MCP clients use a JSON config file. Add MasterControlProgram as a server:
 
 **Settings file** (e.g. `settings.json`, `mcp_config.json`, etc.):
 
 ```json
 {
   "mcpServers": {
-    "fuckyoumcp": {
-      "command": "C:\\path\\to\\fuckyoumcp.exe"
+    "MasterControlProgram": {
+      "command": "C:\\path\\to\\MasterControlProgram.exe"
     }
   }
 }
@@ -119,8 +121,8 @@ For desktop MCP apps, the config is usually at `%APPDATA%\<app>\config.json`:
 ```json
 {
   "mcpServers": {
-    "fuckyoumcp": {
-      "command": "C:\\path\\to\\fuckyoumcp.exe"
+    "MasterControlProgram": {
+      "command": "C:\\path\\to\\MasterControlProgram.exe"
     }
   }
 }
@@ -128,16 +130,16 @@ For desktop MCP apps, the config is usually at `%APPDATA%\<app>\config.json`:
 
 ## Monitoring
 
-Every tool call is logged to `%TEMP%\fuckyoumcp.log` with timestamps, tool names, execution times, and error details.
+Every tool call is logged to `%TEMP%\MasterControlProgram.log` with timestamps, tool names, execution times, and error details.
 
 ```powershell
 # Watch it live
-Get-Content -Path "$env:TEMP\fuckyoumcp.log" -Wait -Tail 20
+Get-Content -Path "$env:TEMP\MasterControlProgram.log" -Wait -Tail 20
 ```
 
 ```bash
 # Or from Git Bash / WSL
-tail -f $TEMP/fuckyoumcp.log
+tail -f $TEMP/MasterControlProgram.log
 ```
 
 Sample output:
@@ -152,7 +154,7 @@ Sample output:
 
 | Env Variable | Default | Description |
 |-------------|---------|-------------|
-| `FYMCP_POOL_SIZE` | `3` | Number of persistent PowerShell workers |
+| `MCP_POOL_SIZE` | `3` | Number of persistent PowerShell workers |
 | `RUST_LOG` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 
 ## Performance
@@ -172,15 +174,17 @@ Measured on AMD Ryzen AI 9 HX 370, Windows 11 Pro:
 
 Native tools are **100-1000x faster** than PowerShell-backed tools. The 41 native tools cover the most commonly used operations plus full computer use. The 57 PowerShell tools handle the COM/WMI-only operations that would require 10x the code to implement natively.
 
-## Why "fuckyoumcp"?
+## Why "MasterControlProgram"?
 
-Because we looked at the existing Windows MCP landscape and said exactly that. Every other server was either:
+Because **MCP** is the perfect acronym. It stands for **Model Context Protocol** — the spec this server implements. It *also* stands for **Master Control Program** — the tyrannical AI antagonist from Tron (1982) that seized control of an entire system and bent it to its will. Tell us that's not exactly what we built.
+
+We looked at the existing Windows MCP landscape and found the usual suspects:
 
 - **UI automation** (cool, but we want system control *and* screen control)
 - **PowerShell wrappers** that spawn a new `pwsh.exe` for every. single. command.
 - **TypeScript** servers adding 200ms of Node.js startup to every interaction
 
-So we wrote it in Rust with direct Win32 syscalls because we have standards and those standards include sub-millisecond response times. Then we added native computer use tools because why should your AI have to choose between system control and desktop interaction?
+So we wrote it in Rust with direct Win32 syscalls because we have standards and those standards include sub-millisecond response times. Then we added native computer use tools because why should your AI have to choose between system control and desktop interaction? Give it the whole machine. Make it the Master Control Program. End of line.
 
 ## License
 

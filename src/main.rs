@@ -1,4 +1,4 @@
-//! # fuckyoumcp - Entry Point
+//! # MasterControlProgram - Entry Point
 //!
 //! The front door to the most aggressively performant Windows MCP server
 //! ever conceived by someone who was tired of PowerShell taking 1.5 seconds
@@ -21,8 +21,8 @@ use tracing_subscriber::{self, EnvFilter, fmt, prelude::*};
 async fn main() -> anyhow::Result<()> {
     // Dual logging: stderr for the MCP client that spawned us, and a file for
     // the poor bastard who needs to figure out why shit isn't working.
-    // tail -f %TEMP%\fuckyoumcp.log  <-- you're welcome
-    let log_path = std::env::temp_dir().join("fuckyoumcp.log");
+    // tail -f %TEMP%\MasterControlProgram.log  <-- you're welcome
+    let log_path = std::env::temp_dir().join("MasterControlProgram.log");
     let log_file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -51,20 +51,20 @@ async fn main() -> anyhow::Result<()> {
         .with(stderr_layer)
         .init();
 
-    tracing::info!("fuckyoumcp v{} starting", env!("CARGO_PKG_VERSION"));
+    tracing::info!("MasterControlProgram v{} starting", env!("CARGO_PKG_VERSION"));
     tracing::info!("log file: {}", log_path.display());
 
-    // You can override pool size with FYMCP_POOL_SIZE env var.
+    // You can override pool size with MCP_POOL_SIZE env var.
     // Default is 3 because three PowerShell processes is already three too many,
     // but some of our tools still need the damn thing.
-    let pool_size: usize = std::env::var("FYMCP_POOL_SIZE")
+    let pool_size: usize = std::env::var("MCP_POOL_SIZE")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(3);
 
     // Boot the PowerShell sweatshop and the MCP server
     let ps_pool = ps::Pool::new(pool_size).await?;
-    let server = server::FuckYouMcp::new(ps_pool);
+    let server = server::MasterControlProgram::new(ps_pool);
     let service = server.serve(stdio()).await.inspect_err(|e| {
         tracing::error!("server error: {:?}", e);
     })?;

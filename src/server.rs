@@ -462,7 +462,7 @@ pub struct PerfCounterInput {
 // ensures all clones share the same pool. We're not animals.
 
 #[derive(Clone)]
-pub struct FuckYouMcp {
+pub struct MasterControlProgram {
     /// The PowerShell sweatshop. 57 tools still need this.
     ps: Arc<ps::Pool>,
     /// Auto-generated tool router. Maps tool names to handler methods.
@@ -551,7 +551,7 @@ macro_rules! native {
 // ps!()     = PowerShell pool, 200-1500ms   (57 tools — the slow but necessary ones)
 
 #[tool_router]
-impl FuckYouMcp {
+impl MasterControlProgram {
     pub fn new(ps_pool: ps::Pool) -> Self {
         Self {
             ps: Arc::new(ps_pool),
@@ -1470,7 +1470,7 @@ impl FuckYouMcp {
     // move the mouse, click things, type text, press key combos. These are
     // all native Win32 via SendInput and GDI — no PowerShell in the loop.
 
-    #[tool(description = "Capture a screenshot of the screen or a specific region. Returns the image as PNG. Use this to see what's on screen before taking actions.")]
+    #[tool(description = "Capture a screenshot of the screen or a specific region. Returns the image as JPEG. Use this to see what's on screen before taking actions.")]
     async fn screen_capture(
         &self,
         Parameters(input): Parameters<ScreenCaptureInput>,
@@ -1482,7 +1482,7 @@ impl FuckYouMcp {
                 let ms = start.elapsed().as_millis();
                 tracing::info!(tool = "screen_capture", ms = ms as u64, "✓ native done");
                 Ok(CallToolResult::success(vec![
-                    Content::image(b64, "image/png"),
+                    Content::image(b64, "image/jpeg"),
                     Content::text(format!("Screenshot captured: {w}x{h} pixels")),
                 ]))
             }
@@ -1534,7 +1534,7 @@ impl FuckYouMcp {
         native!(crate::win32::input::mouse_drag(input.start_x, input.start_y, input.end_x, input.end_y, button))
     }
 
-    #[tool(description = "Type text by injecting Unicode keyboard events. Works with any character including emoji, accented letters, CJK, etc. regardless of keyboard layout.")]
+    #[tool(description = "Type literal text strings by injecting Unicode character events. Use this ONLY for typing visible text into fields, editors, or documents — NOT for keyboard shortcuts, hotkeys, or special keys. For Ctrl+C, Enter, Escape, Tab, arrow keys, F-keys, or any modifier combo, use keyboard_key instead.")]
     async fn keyboard_type(
         &self,
         Parameters(input): Parameters<KeyboardTypeInput>,
@@ -1542,7 +1542,7 @@ impl FuckYouMcp {
         native!(crate::win32::input::keyboard_type(&input.text))
     }
 
-    #[tool(description = "Press a key or key combination. Examples: 'enter', 'ctrl+c', 'alt+tab', 'ctrl+shift+s', 'win+d', 'f5'. Modifiers: ctrl, shift, alt, win. See tool schema for full key list.")]
+    #[tool(description = "Press a keyboard shortcut, hotkey, or special key. Use this for ALL non-text key actions: Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+N, Ctrl+S, Alt+Tab, Alt+F4, Win+D, Enter, Escape, Tab, Backspace, Delete, Space, arrow keys (up/down/left/right), F1-F24, Home, End, PageUp, PageDown, Insert, PrintScreen, or any modifier combo like Ctrl+Shift+S. Format: keys joined with '+' (e.g. 'ctrl+c', 'alt+tab', 'shift+f5'). Single keys work too: 'enter', 'escape', 'b', 'x'. For typing visible text into fields or editors, use keyboard_type instead.")]
     async fn keyboard_key(
         &self,
         Parameters(input): Parameters<KeyboardKeyInput>,
@@ -1569,10 +1569,10 @@ impl FuckYouMcp {
 // which tells the MCP client "hey, I exist, and I have tools."
 
 #[tool_handler]
-impl ServerHandler for FuckYouMcp {
+impl ServerHandler for MasterControlProgram {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("fuckyoumcp", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("MasterControlProgram", env!("CARGO_PKG_VERSION")))
             .with_instructions(
                 "Windows 11 System Control MCP Server. 98 tools across 19 categories: \
                  system info, processes, services, filesystem, registry, network, firewall, \

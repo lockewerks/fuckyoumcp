@@ -11,8 +11,8 @@
 //!   4. SelectObject — attach the bitmap to the memory DC
 //!   5. BitBlt — blast screen pixels into our bitmap
 //!   6. GetDIBits — extract raw BGRA pixels from the bitmap
-//!   7. Convert BGRA → RGB (because PNG doesn't want Windows' weirdo byte order)
-//!   8. Encode to PNG, then base64 for MCP transport
+//!   7. Convert BGRA → RGB (because nobody wants Windows' weirdo byte order)
+//!   8. Encode to JPEG, then base64 for MCP transport
 //!
 //! That's EIGHT steps to take a screenshot. Windows: making the simple complex
 //! since 1985.
@@ -106,18 +106,19 @@ pub fn capture(
             rgb[i * 3 + 2] = bgra[i * 4]; // B ← R position
         }
 
-        // Step 8: Encode to PNG, then base64
-        let mut png_buf = Vec::new();
-        {
-            let mut encoder = png::Encoder::new(&mut png_buf, cap_w, cap_h);
-            encoder.set_color(png::ColorType::Rgb);
-            encoder.set_depth(png::BitDepth::Eight);
-            encoder.set_compression(png::Compression::Fast);
-            let mut writer = encoder.write_header()?;
-            writer.write_image_data(&rgb)?;
-        }
+        // Step 8: Encode to JPEG, then base64
+        // JPEG is way smaller than PNG for screenshots — less data to shove
+        // through MCP transport, faster round-trips, everybody wins.
+        let mut jpeg_buf = Vec::new();
+        let encoder = jpeg_encoder::Encoder::new(&mut jpeg_buf, 80);
+        encoder.encode(
+            &rgb,
+            cap_w as u16,
+            cap_h as u16,
+            jpeg_encoder::ColorType::Rgb,
+        ).map_err(|e| anyhow::anyhow!("JPEG encode failed: {e}"))?;
 
-        let b64 = STANDARD.encode(&png_buf);
+        let b64 = STANDARD.encode(&jpeg_buf);
         Ok((b64, cap_w, cap_h))
     }
 }
